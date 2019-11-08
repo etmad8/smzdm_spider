@@ -3,6 +3,10 @@
 
 ### 怎么使用  
 下载已经编译好windows 64位的可执行文件  
+下载地址：  
+链接：https://pan.baidu.com/s/1NyGo5-I2u1ncxPFSjKBk5g   
+提取码：i3cv   
+
 打开config.ini文件 按提示，配置SMTP服务器信息，接受邮件的email, 关键词，还有爬取间隔时间  
 爬取间隔时间建议不要低于1分钟，防止被服务器block  
 运行spider.exe即可  
