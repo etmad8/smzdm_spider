@@ -28,9 +28,11 @@ class SmzdmSpider():
     def create_table(self):
         sql = '''CREATE TABLE IF NOT EXISTS `smzdm_record`(
                   `title` varchar(1000) DEFAULT NULL,
+                  `content` varchar(1000) DEFAULT NULL,
                   `price` varchar(1000) DEFAULT NULL,
                   `link` varchar(1000) DEFAULT NULL,
                   `page_url` varchar(1000) DEFAULT NULL,
+                  `pic_url` varchar(1000) DEFAULT NULL,
                   `md5` varchar(255) NOT NULL,
                   PRIMARY KEY (`md5`)
                 )'''
@@ -76,28 +78,34 @@ class SmzdmSpider():
         # data = r.text.encode('utf-8').decode('unicode_escape')
         data = r.text
 
-        dataa = json.loads(data)
-        dataa = dataa['data']
+        json_data = json.loads(data)
+        core_data = json_data['data']
 
         resultList = []
 
-        for string in dataa:
-            if string.__contains__('type'):
-                if string['type'] == 'ad':
+        for item in core_data:
+            if item.__contains__('type'):
+                if item['type'] == 'ad':
                     continue
-            title = string['article_title']
+            title = item['article_title']
+            content = item['article_content_all']
             price = ''
-            if 'article_price' in string.keys():
-                price = string['article_price']
+            if 'article_price' in item.keys():
+                price = item['article_price']
             link = ''
-            if 'article_link' in string.keys():
-                link = string['article_link']
-            page_url = string['article_url']
+            if 'article_link' in item.keys():
+                link = item['article_link']
+            page_url = item['article_url']
+            pic_url = ''
+            if 'article_pic' in item.keys():
+                pic_url = item['article_pic']
             result = {
                 'title': title,
+                'content': content,
                 'price': price,
                 'link': link,
-                'page_url': page_url
+                'page_url': page_url,
+                'pic_url': pic_url
             }
             resultList.append(result)
         return resultList
@@ -133,19 +141,22 @@ class SmzdmSpider():
 
     # 此数据是否已经在数据库中存在过
     def is_data_exist(self, result):
-        tempResult = sorted(result.items(), key=lambda result: result[0])
-        sql = "SELECT * FROM smzdm_record where md5 = '%s'" % self.md5(str(tempResult))
+        # tempResult = sorted(result.items(), key=lambda result: result[0])
+        # 根据page_url的md5,判断是否在数据库中
+        sql = 'SELECT * FROM smzdm_record where md5 = "%s"' % self.md5(result['page_url'])
+        print(sql)
         cursor = self.con.execute_sql(sql)
-        if cursor.rowcount > 0:
-            return False
-        else:
+        if len(cursor.fetchall()) > 0:
             return True
+        else:
+            return False
 
     # 插入数据
     def insert_data(self, result):
-        tempResult = sorted(result.items(), key=lambda result: result[0])
-        sql = """INSERT INTO smzdm_record(title,price,link,page_url,md5) VALUES (?, ?, ?, ?, ?)"""
-        value = [(result['title'], result['price'], result['link'], result['page_url'], self.md5(str(tempResult)))]
+        # tempResult = sorted(result.items(), key=lambda result: result[0])
+        sql = """INSERT INTO smzdm_record(title,content,price,link,page_url,pic_url,md5) VALUES (?, ?, ?, ?, ?, ?, ?)"""
+        value = [(result['title'], result['content'], result['price'], result['link'], result['page_url'], result['pic_url'], self.md5(result['page_url']))]
+        print(self.md5(result['page_url']))
         self.con.insert_table_many(sql, value)
 
     # 启动一次查询全过程
@@ -155,9 +166,9 @@ class SmzdmSpider():
         for result in resultList:
             for key in self.watch_keys:
                 if result['title'].find(key) != -1:
-                    if self.is_data_exist(result):
+                    if not self.is_data_exist(result):
                         print('发现新商品', str(result))
-                        htmldata = "<div>{title}</div><div>{price}</div><div><a href='{url}'>{url}</a></div>".format(title=result['title'],price=result['price'],url=result['page_url'])
+                        htmldata = "<div>{title}</div><div style='margin-top:10px'>{content}</div><div style='margin-top:10px'>{price}</div><div style='margin-top:10px'><a href='{url}'>{url}</a></div><div style='margin-top:10px'><img src='{pic_url}'/></div>".format(title=result['title'],content = result['content'],price=result['price'],url=result['page_url'],pic_url=result['pic_url'])
                         self.send_mail(htmldata, key, result['title'])
                         self.insert_data(result)
 
